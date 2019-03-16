@@ -1,5 +1,7 @@
 # pip3 install flask==0.12.2
 from flask import Flask, render_template, request, redirect, session, flash, url_for
+#pip3 install flask_mysqldb==0.2.0
+from flask_mysqldb import MySQL
 
 app = Flask(__name__)
 app.secret_key = 'alura'

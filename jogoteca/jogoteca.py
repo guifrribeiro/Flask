@@ -1,39 +1,29 @@
 # pip3 install flask==0.12.2
-from flask import Flask, render_template, request, redirect, session, flash, url_for
+from flask import Flask, render_template, request, redirect, session, flash, url_for, send_from_directory
+from models import Jogo, Usuario
 #pip3 install flask_mysqldb==0.2.0
 from flask_mysqldb import MySQL
+from dao import JogoDao, UsuarioDao
+import os
 
 app = Flask(__name__)
 app.secret_key = 'alura'
 
-class Jogo:
-    def __init__(self, nome, categoria, console):
-        self.nome = nome
-        self.categoria = categoria
-        self.console = console
+app.config['MYSQL_HOST'] = "127.0.0.1"
+app.config['MYSQL_USER'] = "root"
+app.config['MYSQL_PASSWORD'] = "admin"
+app.config['MYSQL_DB'] = "jogoteca"
+app.config['MYSQL_PORT'] = 3306
+app.config['UPLOAD_PATH'] = os.path.dirname(os.path.abspath(__file__)) + '/uploads'
 
-class Usuario:
-    def __init__(self, id, nome, senha):
-        self.id = id
-        self.nome = nome
-        self.senha = senha
+db = MySQL(app)
 
-
-usuario1 = Usuario('luan', 'Luiz Antonio Marques', '1234')
-usuario2 = Usuario('Nico', 'Nico Steppat', '7a1')
-usuario3 = Usuario('flavio', 'flavio Almeida', 'javascript')
-
-usuarios = {usuario1.id: usuario1,
-            usuario2.id: usuario2,
-            usuario3.id: usuario3}
-
-
-jogo1 = Jogo('Super Mario', 'Ação', 'SNES')
-jogo2 = Jogo('Pokemon Gold', 'RPG', 'GBA')
-lista = [jogo1, jogo2]
+jogo_dao = JogoDao(db)
+usuario_dao = UsuarioDao(db)
 
 @app.route('/')
 def index():
+    list = jogo_dao.listar()
     return render_template('lista.html', titulo='Jogos', jogos=lista)
 
 @app.route('/novo')
@@ -48,7 +38,33 @@ def criar():
     categoria = request. form['categoria']
     console = request. form['console']
     jogo = Jogo(nome, categoria, console)
-    lista.append(jogo)
+    jogo_dao.salvar(jogo)
+    # Salvando arquivos
+    arquivo = request.files['arquivo']
+    upload_path = app.config['UPLOAD_PATH']
+    arquivo.save(f'{upload_path}/capa{jogo.id}.jpg')
+    return redirect(url_for('index'))
+
+@app.route('/editar/<int:id>')
+def editar(id):
+    if 'usuario_logado' not in session or session['usuario_logado'] == None:
+        return redirect(url_for('login', proxima=url_for('editar')))
+    jogo = jogo_dao.busca_por_id(id)
+    return render_template('editar.html', titulo='Editar Jogo', jogo=jogo, capa_jogo=f'capa{id}.jpg')
+
+@app.route('/atualizar', methods=['POST',])
+def atualizar():
+    nome = request. form['nome']
+    categoria = request. form['categoria']
+    console = request. form['console']
+    jogo = Jogo(nome, categoria, console, id=request.form['id'])
+    jogo_dao.salvar(jogo)
+    return redirect(url_for('index'))
+
+@app.route('/deletar/<int:id>')
+def deletar(id):
+    jogo_dao.deletar(id)
+    flash('Jogo foi removido com sucesso')
     return redirect(url_for('index'))
 
 @app.route('/login')
@@ -59,8 +75,8 @@ def login():
 
 @app.route('/autenticar', methods=['POST', ])
 def autenticar():
-    if request.form['usuario'] in usuarios:
-        usuario = usuarios[request.form['usuario']]
+    usuario = usuario_dao.buscar_por_id(request.form['usuario'])
+    if usuario:
         if usuario.senha == request.form['senha']:
             session['usuario_logado'] = usuario.id
             flash(usuario.nome + ' logou com sucesso!')
@@ -70,10 +86,10 @@ def autenticar():
         flash('Não logado, tente novamente!')
         return redirect(url_for('login'))
 
-@app.route('/logout')
-def logout():
-    session['usuario_logado'] = None
-    flash('Nenhum usuário logado!')
-    return redirect(url_for('login'))
+@app.route('/uploads/<nome_arquivo>')
+def imagem(nome_arquivo):
+    return send_from_directory('uploads', nome_arquivo)
+
+
 
 app.run(debug=True)

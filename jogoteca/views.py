@@ -10,7 +10,7 @@ usuario_dao = UsuarioDao(db)
 
 @app.route('/')
 def index():
-    list = jogo_dao.listar()
+    lista = jogo_dao.listar()
     return render_template('lista.html', titulo='Jogos', jogos=lista)
 
 @app.route('/novo')

@@ -2,11 +2,14 @@
 from flask import Flask
 #pip3 install flask_mysqldb==0.2.0
 from flask_mysqldb import MySQL
-import os
 
 app = Flask(__name__)
 app.config.from_pyfile('config.py')
 
 db = MySQL(app)
 
-app.run(debug=True)
+from views import *
+
+# Garantindo que o app.run não é executado quando é importado
+if __name__ == '__main__':
+    app.run(debug=True)
